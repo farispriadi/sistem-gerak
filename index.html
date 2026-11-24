@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sistem Gerak Manusia - IPAS Kelas 6 SD</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* Mencegah scroll halaman tidak sengaja dan menjaga viewport penuh */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    /* Gaya SVG tulang datar yang ramah anak */
+    .bone-group {
+      cursor: pointer;
+      transition: filter 0.2s ease;
+    }
+
+    .bone-group .bone-shape {
+      fill: #f8fafc;
+      stroke: #475569;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
+    }
+
+    .bone-group:hover .bone-shape {
+      fill: #e0f2fe;
+      stroke: #0284c7;
+      stroke-width: 3;
+    }
+
+    .bone-group.active .bone-shape {
+      fill: #7dd3fc;
+      stroke: #0369a1;
+      stroke-width: 3.4;
+      filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.5));
+    }
+
+    .bone-group.snapped .bone-shape {
+      fill: #86efac;
+      stroke: #15803d;
+      stroke-width: 3.4;
+      filter: drop-shadow(0 0 7px rgba(34, 197, 94, 0.5));
+    }
+
+    /* Tulang pendukung non-interaktif */
+    .support-bone {
+      fill: #f1f5f9;
+      stroke: #94a3b8;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Area target drop zone berdenyut lembut */
+    @keyframes pulseDropzone {
+      0%, 100% {
+        stroke-opacity: 1;
+        fill-opacity: 0.16;
+      }
+      50% {
+        stroke-opacity: 0.45;
+        fill-opacity: 0.32;
+      }
+    }
+
+    .dropzone-target {
+      fill: #38bdf8;
+      stroke: #0284c7;
+      stroke-width: 3;
+      stroke-dasharray: 7 5;
+      cursor: pointer;
+      animation: pulseDropzone 1.7s infinite ease-in-out;
+      transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .dropzone-target.drag-over {
+      fill: #0ea5e9;
+      fill-opacity: 0.42;
+      stroke: #0369a1;
+      stroke-width: 4;
+      animation: none;
+    }
+
+    /* Animasi getar ringan saat salah bentuk tulang */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .animate-shake {
+      animation: shake 0.38s ease-in-out;
+    }
+
+    /* Kartu tulang draggable dengan touch-action: none agar drag lancar di HP */
+    .bone-card {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    .bone-card.selected {
+      border-color: #0284c7;
+      background-color: #f0f9ff;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.22);
+    }
+
+    .bone-card.dragging-source {
+      opacity: 0.4;
+      transform: scale(0.96);
+    }
+
+    /* Elemen bayangan (ghost) yang mengikuti jari/kursor saat drag */
+    #drag-ghost {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 84px;
+      height: 84px;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.92);
+      border: 2.5px solid #0284c7;
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(2, 132, 199, 0.28);
+      will-change: transform;
+    }
+
+    /* Scrollbar halus khusus panel kanan jika layar sangat pendek */
+    .thin-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-[100dvh] flex flex-col font-sans">
+
+  <!-- ================================================= -->
+  <!-- HEADER RINGKAS (COMPACT)                          -->
+  <!-- ================================================= -->
+  <header class="bg-white border-b border-slate-200 shrink-0 z-20">
+    <div class="max-w-5xl mx-auto px-2.5 sm:px-5 py-2 flex items-center justify-between gap-2">
+      <!-- Judul Singkat -->
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="5" r="2.8" />
+            <path d="M12 8v7.5M7.5 11h9M10 15.5l-2 5.5M14 15.5l2 5.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div class="truncate">
+          <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">Sistem Gerak</h1>
+          <p class="text-[10px] sm:text-xs font-medium text-sky-600 leading-tight">IPAS Kelas 6 SD</p>
+        </div>
+      </div>
+
+      <!-- Tombol Pindah Mode -->
+      <nav class="flex bg-slate-100 p-0.5 rounded-xl shrink-0" aria-label="Pilih Mode">
+        <button
+          id="tab-explore"
+          type="button"
+          class="px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-white text-sky-700 shadow-sm"
+        >
+          Eksplorasi
+        </button>
+        <button
+          id="tab-challenge"
+          type="button"
+          class="px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900"
+        >
+          Tantangan
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bar Indikator Ronde & Skor (Hanya muncul saat Mode Tantangan) -->
+    <div id="challenge-header-bar" class="hidden border-t border-slate-100 bg-sky-50/60">
+      <div class="max-w-5xl mx-auto px-3 sm:px-5 py-1.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-1">
+          <span id="header-round-badge" class="text-[11px] sm:text-xs font-extrabold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-md whitespace-nowrap">
+            Ronde 1/5
+          </span>
+          <div class="flex-1 max-w-[160px] h-2 bg-white border border-sky-200 rounded-full overflow-hidden">
+            <div id="header-progress-bar" class="h-full bg-sky-500 rounded-full transition-all duration-300" style="width: 20%"></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="text-[11px] sm:text-xs font-semibold text-slate-600">Skor:</span>
+          <span id="header-score" class="text-sm sm:text-base font-extrabold text-emerald-600">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================================================= -->
+  <!-- AREA UTAMA: 2 KOLOM PERMANEN (SIDE-BY-SIDE)       -->
+  <!-- ================================================= -->
+  <main class="flex-1 min-h-0 w-full max-w-5xl mx-auto p-2 sm:p-4 overflow-hidden">
+    <div class="h-full grid grid-cols-[46%_54%] sm:grid-cols-[44%_56%] gap-2 sm:gap-5">
+
+      <!-- ============================================= -->
+      <!-- KOLOM KIRI (~46%): VISUALISASI RANGKA UTUH    -->
+      <!-- ============================================= -->
+      <section
+        id="left-skeleton-card"
+        class="h-full min-h-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-2 sm:p-4 flex flex-col items-center justify-between overflow-hidden"
+      >
+        <!-- Label Singkat Atas Rangka -->
+        <div class="w-full text-center shrink-0 pb-1">
+          <span id="skeleton-hint" class="inline-block text-[10px] sm:text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+            Ketuk tulang untuk belajar
+          </span>
+        </div>
+
+        <!-- Container SVG Rangka (Selalu pas dalam 1 layar HP) -->
+        <div class="flex-1 min-h-0 w-full flex items-center justify-center py-0.5">
+          <svg
+            id="main-skeleton-svg"
+            viewBox="0 0 260 520"
+            class="max-h-full max-w-full w-auto h-full select-none"
+            role="img"
+            aria-label="Diagram Rangka Manusia Interaktif"
+          >
+            <!-- Dirender oleh JavaScript -->
+          </svg>
+        </div>
+
+        <!-- Indikator Bawah Rangka -->
+        <div class="w-full text-center shrink-0 pt-1">
+          <span id="skeleton-footer-label" class="text-[10px] sm:text-xs font-bold text-sky-700">
+            1 / 8 Bagian
+          </span>
+        </div>
+      </section>
+
+      <!-- ============================================= -->
+      <!-- KOLOM KANAN (~54%): PANEL FOKUS & INTERAKSI   -->
+      <!-- ============================================= -->
+      <section class="h-full min-h-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-2.5 sm:p-5 flex flex-col overflow-hidden">
+
+        <!-- ------------------------------------------- -->
+        <!-- KONTEN KANAN MODE 1: EKSPLORASI RANGKA      -->
+        <!-- ------------------------------------------- -->
+        <div id="right-explore-panel" class="h-full flex flex-col min-h-0">
+          <!-- Area Keterangan Tulang (Bisa scroll halus jika layar sangat pendek) -->
+          <div class="flex-1 min-h-0 overflow-y-auto thin-scroll pr-0.5 space-y-2.5 sm:space-y-3.5">
+            <!-- Badge Kelompok & Nama Tulang -->
+            <div class="border-b border-slate-100 pb-2">
+              <span
+                id="info-group-badge"
+                class="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 mb-1"
+              >
+                Rangka Kepala
+              </span>
+              <h2 id="info-name" class="text-base sm:text-xl font-extrabold text-slate-900 leading-snug">
+                Tulang Tengkorak
+              </h2>
+            </div>
+
+            <!-- Fungsi Utama -->
+            <div class="bg-slate-50 rounded-xl p-2.5 sm:p-3.5 border border-slate-100">
+              <h3 class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                Fungsi Utama
+              </h3>
+              <p id="info-function" class="text-xs sm:text-sm text-slate-800 leading-relaxed"></p>
+            </div>
+
+            <!-- Jenis Sendi Terkait -->
+            <div class="bg-amber-50/80 rounded-xl p-2.5 sm:p-3.5 border border-amber-200/70">
+              <h3 class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-700 mb-0.5">
+                Jenis Sendi Terkait
+              </h3>
+              <p id="info-joint" class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed"></p>
+            </div>
+
+            <!-- Fakta Singkat -->
+            <div class="bg-emerald-50/80 rounded-xl p-2.5 sm:p-3.5 border border-emerald-200/70">
+              <h3 class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700 mb-0.5">
+                Fakta Singkat
+              </h3>
+              <p id="info-fact" class="text-xs sm:text-sm text-slate-800 leading-relaxed"></p>
+            </div>
+          </div>
+
+          <!-- Navigasi Cepat Bawah Panel Kanan -->
+          <div class="shrink-0 pt-2.5 mt-2 border-t border-slate-100 space-y-2">
+            <div class="grid grid-cols-2 gap-1.5 sm:gap-2">
+              <button
+                id="btn-prev-bone"
+                type="button"
+                class="py-2 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 font-bold text-xs sm:text-sm transition-all"
+              >
+                ← Sebelumnya
+              </button>
+              <button
+                id="btn-next-bone"
+                type="button"
+                class="py-2 px-2 rounded-xl bg-sky-100 hover:bg-sky-200 active:scale-[0.98] text-sky-800 font-bold text-xs sm:text-sm transition-all"
+              >
+                Berikutnya →
+              </button>
+            </div>
+            <button
+              id="btn-go-challenge"
+              type="button"
+              class="w-full py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-sm transition-all"
+            >
+              Mulai Tantangan (5 Ronde) →
+            </button>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------- -->
+        <!-- KONTEN KANAN MODE 2: TANTANGAN RANGKA       -->
+        <!-- ------------------------------------------- -->
+        <div id="right-challenge-panel" class="hidden h-full flex flex-col min-h-0">
+
+          <!-- TAHAP 1: SERET TULANG (3 KARTU SVG) -->
+          <div id="challenge-step-1" class="h-full flex flex-col min-h-0">
+            <div class="shrink-0 mb-2">
+              <p class="text-xs sm:text-base font-extrabold text-slate-900 leading-snug">
+                1. Seret tulang yang hilang ke rangka:
+              </p>
+              <p class="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                Seret ke kotak biru di kiri, atau ketuk kartu lalu ketuk kotak biru.
+              </p>
+            </div>
+
+            <!-- 3 Pilihan Kartu Potongan Tulang SVG -->
+            <div id="bone-cards-container" class="flex-1 min-h-0 flex flex-col justify-center gap-2 sm:gap-3 overflow-y-auto thin-scroll py-0.5">
+              <!-- Kartu dirender oleh JS -->
+            </div>
+
+            <!-- Umpan Balik Tahap 1 -->
+            <div id="step-1-feedback" class="hidden shrink-0 mt-2 p-2.5 rounded-xl text-[11px] sm:text-xs font-semibold leading-snug"></div>
+          </div>
+
+          <!-- TAHAP 2: PILIH NAMA TULANG -->
+          <div id="challenge-step-2" class="hidden h-full flex flex-col min-h-0">
+            <div class="shrink-0 mb-2">
+              <span class="inline-block text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md mb-1">
+                ✓ Tulang Terpasang!
+              </span>
+              <p class="text-xs sm:text-base font-extrabold text-slate-900 leading-snug">
+                2. Apa nama tulang ini?
+              </p>
+            </div>
+
+            <!-- 4 Tombol Pilihan Nama Besar & Ramah Jempol -->
+            <div id="name-choices-container" class="flex-1 min-h-0 overflow-y-auto thin-scroll space-y-2 py-0.5">
+              <!-- Tombol dirender oleh JS -->
+            </div>
+
+            <!-- Ringkasan Fungsi Setelah Menjawab -->
+            <div id="step-2-feedback" class="hidden shrink-0 mt-2 p-2.5 sm:p-3 rounded-xl text-[11px] sm:text-xs leading-relaxed"></div>
+
+            <!-- Tombol Ronde Berikutnya -->
+            <button
+              id="btn-next-round"
+              type="button"
+              class="hidden shrink-0 mt-2.5 w-full py-2.5 sm:py-3 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-sm transition-all"
+            >
+              Ronde Berikutnya →
+            </button>
+          </div>
+
+          <!-- KARTU HASIL AKHIR (SELESAI RONDE 5) -->
+          <div id="challenge-result-card" class="hidden h-full flex flex-col items-center justify-center text-center overflow-y-auto thin-scroll py-2">
+            <!-- Bintang Apresiasi -->
+            <div id="result-stars" class="flex items-center justify-center gap-1.5 mb-2 text-amber-400">
+              <!-- Ikon bintang dirender oleh JS -->
+            </div>
+
+            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full mb-1">
+              Tantangan Selesai
+            </span>
+            <h2 id="result-title" class="text-base sm:text-2xl font-extrabold text-slate-900 leading-tight mb-1">
+              Hebat Sekali!
+            </h2>
+            <p id="result-message" class="text-[11px] sm:text-sm text-slate-600 mb-3 px-1">
+              Kamu sudah mengenal bagian rangka manusia dengan sangat baik.
+            </p>
+
+            <!-- Ringkasan Skor -->
+            <div class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4 grid grid-cols-2 gap-2">
+              <div>
+                <span class="block text-[10px] sm:text-xs text-slate-500 font-medium">Skor Total</span>
+                <span id="final-score" class="text-xl sm:text-3xl font-extrabold text-sky-600">100</span>
+              </div>
+              <div>
+                <span class="block text-[10px] sm:text-xs text-slate-500 font-medium">Nama Benar</span>
+                <span id="final-correct" class="text-xl sm:text-3xl font-extrabold text-emerald-600">5/5</span>
+              </div>
+            </div>
+
+            <!-- Tombol Aksi Akhir -->
+            <div class="w-full space-y-2">
+              <button
+                id="btn-play-again"
+                type="button"
+                class="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-sm transition-all"
+              >
+                Main Lagi
+              </button>
+              <button
+                id="btn-back-explore"
+                type="button"
+                class="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 font-bold text-xs sm:text-sm transition-all"
+              >
+                Kembali Belajar
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Elemen Ghost untuk Drag-and-Drop Pointer Events -->
+  <div id="drag-ghost" aria-hidden="true"></div>
+
+  <!-- ========================================================= -->
+  <!-- LOGIKA APLIKASI (100% CLIENT-SIDE VANILLA JS)             -->
+  <!-- ========================================================= -->
+  <script>
+    /**
+     * Data 8 bagian tulang utama untuk IPAS Kelas 6 SD.
+     * Koordinat SVG berada pada viewBox "0 0 260 520" (titik tengah X = 130).
+     */
+    const BONES_DATA = [
+      {
+        id: 'tengkorak',
+        name: 'Tulang Tengkorak',
+        group: 'Rangka Kepala',
+        func: 'Melindungi otak yang sangat lunak serta membentuk wajah dan melindungi mata serta telinga dalam.',
+        joint: 'Sendi Mati antar-tulang tengkorak, dan Sendi Putar antara tengkorak dengan tulang leher.',
+        fact: 'Tengkorak manusia tersusun dari 22 tulang yang menyatu rapat seperti kepingan puzzle.',
+        svgMarkup: `
+          <path class="bone-shape" d="M96,54 C96,18 164,18 164,54 C164,71 155,83 149,89 L147,99 C141,104 119,104 113,99 L111,89 C105,83 96,71 96,54 Z" />
+          <circle cx="116" cy="59" r="7.5" fill="#64748b" />
+          <circle cx="144" cy="59" r="7.5" fill="#64748b" />
+          <path d="M130,68 L126,77 L134,77 Z" fill="#64748b" />
+          <path d="M119,90 L141,90" stroke="#64748b" stroke-width="2.4" stroke-linecap="round" />
+        `,
+        previewViewBox: '88 14 84 94',
+        dropzone: { x: 90, y: 16, w: 80, h: 90, rx: 30 }
+      },
+      {
+        id: 'selangka',
+        name: 'Tulang Selangka (Bahu)',
+        group: 'Rangka Anggota Gerak',
+        func: 'Menghubungkan tulang dada dengan bahu agar posisi lengan tetap kokoh dan leluasa bergerak.',
+        joint: 'Sendi Peluru di area bahu yang membuat lengan bisa berputar ke segala arah.',
+        fact: 'Tulang selangka berbentuk seperti huruf S landai dan bisa kamu raba tepat di bawah leher.',
+        svgMarkup: `
+          <path class="bone-shape" d="M124,117 C110,113 92,115 74,122 C69,124 68,131 74,132 C92,126 110,124 124,126 C128,126 128,118 124,117 Z" />
+          <path class="bone-shape" d="M136,117 C150,113 168,115 186,122 C191,124 192,131 186,132 C168,126 150,124 136,126 C132,126 132,118 136,117 Z" />
+        `,
+        previewViewBox: '64 106 132 34',
+        dropzone: { x: 66, y: 108, w: 128, h: 30, rx: 12 }
+      },
+      {
+        id: 'rusuk',
+        name: 'Tulang Rusuk & Dada',
+        group: 'Rangka Badan',
+        func: 'Membentuk rongga dada untuk melindungi organ vital yaitu jantung dan paru-paru dari benturan.',
+        joint: 'Sendi Kaku pada pertemuan rusuk dan tulang dada yang bergerak sedikit saat kita bernapas.',
+        fact: 'Kita memiliki 12 pasang tulang rusuk yang ikut mengembang setiap kali menarik napas.',
+        svgMarkup: `
+          <rect class="bone-shape" x="124" y="124" width="12" height="62" rx="6" />
+          <path class="bone-shape" d="M124,132 C94,132 86,144 90,151 C98,155 114,149 124,145" />
+          <path class="bone-shape" d="M136,132 C166,132 174,144 170,151 C162,155 146,149 136,145" />
+          <path class="bone-shape" d="M124,151 C88,153 83,166 89,173 C98,177 114,169 124,164" />
+          <path class="bone-shape" d="M136,151 C172,153 177,166 171,173 C162,177 146,169 136,164" />
+          <path class="bone-shape" d="M124,170 C94,173 91,186 98,191 C107,193 116,186 124,181" />
+          <path class="bone-shape" d="M136,170 C166,173 169,186 162,191 C153,193 144,186 136,181" />
+        `,
+        previewViewBox: '78 118 104 82',
+        dropzone: { x: 80, y: 120, w: 100, h: 78, rx: 18 }
+      },
+      {
+        id: 'belakang',
+        name: 'Tulang Belakang',
+        group: 'Rangka Badan',
+        func: 'Menopang tubuh agar berdiri tegak, melindungi sumsum tulang belakang, dan membantu tubuh membungkuk.',
+        joint: 'Sendi Kaku dan Sendi Geser antar-ruas tulang belakang sehingga punggung tetap lentur.',
+        fact: 'Tulang belakang tersusun dari 33 ruas tulang kecil yang bertumpuk rapi seperti menara.',
+        svgMarkup: `
+          <rect class="bone-shape" x="122" y="102" width="16" height="10" rx="4" />
+          <rect class="bone-shape" x="121" y="191" width="18" height="11" rx="4" />
+          <rect class="bone-shape" x="120" y="203" width="20" height="11" rx="4" />
+          <rect class="bone-shape" x="120" y="215" width="20" height="11" rx="4" />
+          <rect class="bone-shape" x="119" y="227" width="22" height="12" rx="4" />
+        `,
+        previewViewBox: '108 186 44 60',
+        dropzone: { x: 112, y: 188, w: 36, h: 55, rx: 10 }
+      },
+      {
+        id: 'lengan',
+        name: 'Tulang Lengan Atas',
+        group: 'Rangka Anggota Gerak',
+        func: 'Menghubungkan bahu dengan siku serta menjadi tumpuan otot untuk mengangkat dan menggerakkan tangan.',
+        joint: 'Sendi Peluru di bahu (segala arah) dan Sendi Engsel di siku (gerak satu arah seperti pintu).',
+        fact: 'Nama ilmiah tulang lengan atas adalah Humerus, tulang terbesar di bagian lengan kita.',
+        svgMarkup: `
+          <path class="bone-shape" d="M192,126 C201,123 209,130 207,140 L216,204 C222,210 218,220 209,219 C201,220 197,212 201,205 L191,142 C186,136 186,128 192,126 Z" />
+        `,
+        previewViewBox: '180 118 46 108',
+        dropzone: { x: 183, y: 121, w: 40, h: 102, rx: 14 }
+      },
+      {
+        id: 'panggul',
+        name: 'Tulang Panggul',
+        group: 'Rangka Badan',
+        func: 'Menopang berat tubuh bagian atas, menghubungkan tulang belakang dengan kaki, dan melindungi organ perut bawah.',
+        joint: 'Sendi Peluru pada lekukan panggul tempat menempelnya kepala tulang paha.',
+        fact: 'Bentuk tulang panggul menyerupai mangkuk lebar atau sayap kupu-kupu yang sangat kuat.',
+        svgMarkup: `
+          <path class="bone-shape" d="M118,240 L142,240 L152,238 C176,234 188,254 180,274 C174,288 162,298 150,294 C142,290 138,280 130,280 C122,280 118,290 110,294 C98,298 86,288 80,274 C72,254 84,234 108,238 Z" />
+          <circle cx="102" cy="264" r="8.5" fill="#f8fafc" stroke="#475569" stroke-width="2" />
+          <circle cx="158" cy="264" r="8.5" fill="#f8fafc" stroke="#475569" stroke-width="2" />
+        `,
+        previewViewBox: '70 230 120 72',
+        dropzone: { x: 74, y: 233, w: 112, h: 66, rx: 18 }
+      },
+      {
+        id: 'paha',
+        name: 'Tulang Paha (Femur)',
+        group: 'Rangka Anggota Gerak',
+        func: 'Menopang seluruh berat badan saat kita berdiri, berjalan, berlari, dan melompat.',
+        joint: 'Sendi Peluru di pangkal paha (pinggul) dan Sendi Engsel di bagian lutut.',
+        fact: 'Tulang paha (femur) adalah tulang terpanjang, terbesar, dan terkuat di seluruh tubuh manusia.',
+        svgMarkup: `
+          <path class="bone-shape" d="M150,290 C158,284 172,288 172,300 L175,386 C181,394 176,406 166,404 C162,402 160,402 156,404 C146,406 142,394 148,386 L150,308 C144,304 144,294 150,290 Z" />
+        `,
+        previewViewBox: '138 280 48 130',
+        dropzone: { x: 140, y: 284, w: 42, h: 124, rx: 14 }
+      },
+      {
+        id: 'kering',
+        name: 'Tulang Kering & Betis',
+        group: 'Rangka Anggota Gerak',
+        func: 'Menopang tubuh bagian bawah, menjaga keseimbangan kaki, serta membantu gerakan berlari dan menendang.',
+        joint: 'Sendi Engsel di lutut dan Sendi Geser pada tulang-tulang pergelangan kaki.',
+        fact: 'Tulang kering di depan berukuran lebih besar, sedangkan tulang betis di sampingnya lebih ramping.',
+        svgMarkup: `
+          <path class="bone-shape" d="M148,412 C154,408 164,408 166,416 L164,488 C166,494 158,498 152,496 C146,494 146,488 148,482 Z" />
+          <path class="bone-shape" d="M172,418 C176,416 180,420 179,426 L177,488 C178,494 172,496 170,490 L171,426 Z" />
+        `,
+        previewViewBox: '138 404 48 98',
+        dropzone: { x: 141, y: 406, w: 42, h: 94, rx: 14 }
+      }
+    ];
+
+    /**
+     * Tulang pendukung non-interaktif agar siluet rangka utuh dari kepala hingga telapak kaki.
+     */
+    const SUPPORT_BONES_SVG = `
+      <!-- Lengan Kiri (Sisi Kiri Layar) -->
+      <path class="support-bone" d="M68,126 C59,123 51,130 53,140 L44,204 C38,210 42,220 51,219 C59,220 63,212 59,205 L69,142 C74,136 74,128 68,126 Z" />
+      <path class="support-bone" d="M46,222 L33,288 C31,294 39,296 43,290 L56,224 Z" />
+      <ellipse class="support-bone" cx="34" cy="304" rx="8.5" ry="12" />
+      <!-- Lengan Bawah Kanan (Sisi Kanan Layar) -->
+      <path class="support-bone" d="M214,222 L227,288 C229,294 221,296 217,290 L204,224 Z" />
+      <ellipse class="support-bone" cx="226" cy="304" rx="8.5" ry="12" />
+      <!-- Kaki Kiri Lengkap (Referensi Simetris) -->
+      <path class="support-bone" d="M110,290 C102,284 88,288 88,300 L85,386 C79,394 84,406 94,404 C98,402 100,402 104,404 C114,406 118,394 112,386 L110,308 C116,304 116,294 110,290 Z" />
+      <path class="support-bone" d="M112,412 C106,408 96,408 94,416 L96,488 C94,494 102,498 108,496 C114,494 114,488 112,482 Z" />
+      <path class="support-bone" d="M88,418 C84,416 80,420 81,426 L83,488 C82,494 88,496 90,490 L89,426 Z" />
+      <!-- Telapak Kaki Kiri & Kanan -->
+      <path class="support-bone" d="M92,498 L112,498 L114,511 C102,515 84,515 78,509 C76,503 84,498 92,498 Z" />
+      <path class="support-bone" d="M168,498 L148,498 L146,511 C158,515 176,515 182,509 C184,503 176,498 168,498 Z" />
+    `;
+
+    // =========================================
+    // STATE APLIKASI
+    // =========================================
+    const state = {
+      mode: 'explore', // 'explore' | 'challenge'
+      exploreIndex: 0,
+
+      // State Tantangan (5 Ronde)
+      questions: [],
+      roundIndex: 0,
+      score: 0,
+      correctNameCount: 0,
+      selectedPieceId: null,
+      step1Done: false,
+      step2Done: false,
+      hadWrongDrag: false,
+
+      // State Pointer Drag-and-Drop
+      drag: {
+        active: false,
+        isDragging: false,
+        pieceId: null,
+        sourceCard: null,
+        startX: 0,
+        startY: 0,
+      }
+    };
+
+    // =========================================
+    // ELEMEN DOM
+    // =========================================
+    const tabExplore = document.getElementById('tab-explore');
+    const tabChallenge = document.getElementById('tab-challenge');
+    const challengeHeaderBar = document.getElementById('challenge-header-bar');
+    const headerRoundBadge = document.getElementById('header-round-badge');
+    const headerProgressBar = document.getElementById('header-progress-bar');
+    const headerScore = document.getElementById('header-score');
+
+    const leftSkeletonCard = document.getElementById('left-skeleton-card');
+    const mainSkeletonSvg = document.getElementById('main-skeleton-svg');
+    const skeletonHint = document.getElementById('skeleton-hint');
+    const skeletonFooterLabel = document.getElementById('skeleton-footer-label');
+
+    // Panel Kanan Mode 1 (Eksplorasi)
+    const rightExplorePanel = document.getElementById('right-explore-panel');
+    const infoGroupBadge = document.getElementById('info-group-badge');
+    const infoName = document.getElementById('info-name');
+    const infoFunction = document.getElementById('info-function');
+    const infoJoint = document.getElementById('info-joint');
+    const infoFact = document.getElementById('info-fact');
+    const btnPrevBone = document.getElementById('btn-prev-bone');
+    const btnNextBone = document.getElementById('btn-next-bone');
+    const btnGoChallenge = document.getElementById('btn-go-challenge');
+
+    // Panel Kanan Mode 2 (Tantangan)
+    const rightChallengePanel = document.getElementById('right-challenge-panel');
+    const challengeStep1 = document.getElementById('challenge-step-1');
+    const boneCardsContainer = document.getElementById('bone-cards-container');
+    const step1Feedback = document.getElementById('step-1-feedback');
+
+    const challengeStep2 = document.getElementById('challenge-step-2');
+    const nameChoicesContainer = document.getElementById('name-choices-container');
+    const step2Feedback = document.getElementById('step-2-feedback');
+    const btnNextRound = document.getElementById('btn-next-round');
+
+    const challengeResultCard = document.getElementById('challenge-result-card');
+    const resultStars = document.getElementById('result-stars');
+    const resultTitle = document.getElementById('result-title');
+    const resultMessage = document.getElementById('result-message');
+    const finalScoreEl = document.getElementById('final-score');
+    const finalCorrectEl = document.getElementById('final-correct');
+    const btnPlayAgain = document.getElementById('btn-play-again');
+    const btnBackExplore = document.getElementById('btn-back-explore');
+
+    const dragGhost = document.getElementById('drag-ghost');
+
+    // =========================================
+    // UTILITAS
+    // =========================================
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      if (mode === 'explore') {
+        tabExplore.className = 'px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-white text-sky-700 shadow-sm';
+        tabChallenge.className = 'px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
+        challengeHeaderBar.classList.add('hidden');
+        rightExplorePanel.classList.remove('hidden');
+        rightChallengePanel.classList.add('hidden');
+        renderExploreView();
+      } else {
+        tabChallenge.className = 'px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-white text-sky-700 shadow-sm';
+        tabExplore.className = 'px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
+        challengeHeaderBar.classList.remove('hidden');
+        rightExplorePanel.classList.add('hidden');
+        rightChallengePanel.classList.remove('hidden');
+        startChallenge();
+      }
+    }
+
+    // =========================================
+    // MODE 1: EKSPLORASI RANGKA
+    // =========================================
+    function renderExploreView() {
+      const activeBone = BONES_DATA[state.exploreIndex];
+
+      skeletonHint.textContent = 'Ketuk tulang untuk belajar';
+      skeletonHint.className = 'inline-block text-[10px] sm:text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full';
+      skeletonFooterLabel.textContent = `${state.exploreIndex + 1} / ${BONES_DATA.length} Bagian Tulang`;
+
+      // Render SVG dengan 8 tulang interaktif
+      const groupsMarkup = BONES_DATA.map((bone, idx) => {
+        const isActive = idx === state.exploreIndex;
+        return `
+          <g
+            class="bone-group ${isActive ? 'active' : ''}"
+            data-explore-index="${idx}"
+            role="button"
+            tabindex="0"
+            aria-label="${bone.name}"
+          >
+            ${bone.svgMarkup}
+          </g>
+        `;
+      }).join('');
+
+      mainSkeletonSvg.innerHTML = SUPPORT_BONES_SVG + groupsMarkup;
+
+      // Pasang event klik/tap pada setiap tulang
+      mainSkeletonSvg.querySelectorAll('.bone-group').forEach((g) => {
+        const idx = Number(g.dataset.exploreIndex);
+        g.addEventListener('click', () => {
+          state.exploreIndex = idx;
+          renderExploreView();
+        });
+        g.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            state.exploreIndex = idx;
+            renderExploreView();
+          }
+        });
+      });
+
+      // Isi panel keterangan sebelah kanan
+      infoGroupBadge.textContent = activeBone.group;
+      infoName.textContent = activeBone.name;
+      infoFunction.textContent = activeBone.func;
+      infoJoint.textContent = activeBone.joint;
+      infoFact.textContent = activeBone.fact;
+    }
+
+    // =========================================
+    // MODE 2: TANTANGAN RANGKA (5 RONDE)
+    // =========================================
+    function startChallenge() {
+      state.questions = shuffleArray(BONES_DATA).slice(0, 5);
+      state.roundIndex = 0;
+      state.score = 0;
+      state.correctNameCount = 0;
+
+      challengeResultCard.classList.add('hidden');
+      renderChallengeRound();
+    }
+
+    function renderChallengeRound() {
+      const targetBone = state.questions[state.roundIndex];
+      state.selectedPieceId = null;
+      state.step1Done = false;
+      state.step2Done = false;
+      state.hadWrongDrag = false;
+
+      // Update bar header ronde & skor
+      const roundNum = state.roundIndex + 1;
+      headerRoundBadge.textContent = `Ronde ${roundNum}/5`;
+      headerProgressBar.style.width = `${(roundNum / 5) * 100}%`;
+      headerScore.textContent = state.score;
+
+      // Update petunjuk rangka kiri
+      skeletonHint.textContent = 'Pasang ke area biru ?';
+      skeletonHint.className = 'inline-block text-[10px] sm:text-xs font-bold text-sky-700 bg-sky-100 px-2.5 py-0.5 rounded-full';
+      skeletonFooterLabel.textContent = `Tantangan ${roundNum} dari 5`;
+
+      // Tampilkan Tahap 1, sembunyikan Tahap 2 & Hasil
+      challengeStep1.classList.remove('hidden');
+      challengeStep2.classList.add('hidden');
+      challengeResultCard.classList.add('hidden');
+      step1Feedback.classList.add('hidden');
+      step2Feedback.classList.add('hidden');
+      btnNextRound.classList.add('hidden');
+
+      // Render SVG rangka dengan 1 tulang hilang
+      renderChallengeSkeleton(targetBone, false);
+
+      // Siapkan 3 pilihan kartu SVG potongan tulang (1 benar + 2 pengecoh)
+      const distractors = shuffleArray(BONES_DATA.filter((b) => b.id !== targetBone.id)).slice(0, 2);
+      const cardChoices = shuffleArray([targetBone, ...distractors]);
+
+      boneCardsContainer.innerHTML = cardChoices
+        .map(
+          (bone) => `
+            <div
+              class="bone-card cursor-grab active:cursor-grabbing rounded-2xl border-2 border-slate-200 bg-slate-50 hover:border-sky-400 hover:bg-white p-2 sm:p-3 flex items-center justify-between gap-2 transition-all"
+              data-piece-id="${bone.id}"
+              role="button"
+              tabindex="0"
+              aria-label="Potongan tulang pilihan"
+            >
+              <div class="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-white rounded-xl border border-slate-100 p-1.5 shrink-0 pointer-events-none">
+                <svg viewBox="${bone.previewViewBox}" class="w-full h-full">
+                  <g class="bone-group">${bone.svgMarkup}</g>
+                </svg>
+              </div>
+              <div class="flex-1 text-left pointer-events-none">
+                <span class="block text-xs sm:text-sm font-bold text-slate-700">Potongan Tulang</span>
+                <span class="block text-[10px] sm:text-xs text-slate-400">Seret ke rangka kiri</span>
+              </div>
+              <div class="text-slate-300 pr-1 pointer-events-none">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 9h8M8 15h8" />
+                </svg>
+              </div>
+            </div>
+          `
+        )
+        .join('');
+
+      // Pasang Pointer Events pada setiap kartu tulang
+      boneCardsContainer.querySelectorAll('.bone-card').forEach((card) => {
+        card.addEventListener('pointerdown', (e) => handleCardPointerDown(e, card));
+        card.addEventListener('keydown', (e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !state.step1Done) {
+            e.preventDefault();
+            selectPieceCard(card.dataset.pieceId);
+          }
+        });
+      });
+    }
+
+    function renderChallengeSkeleton(targetBone, isSnapped) {
+      let dropzoneMarkup = '';
+
+      const bonesMarkup = BONES_DATA.map((bone) => {
+        if (bone.id === targetBone.id) {
+          if (isSnapped) {
+            return `<g class="bone-group snapped">${bone.svgMarkup}</g>`;
+          }
+          const dz = bone.dropzone;
+          dropzoneMarkup = `
+            <g id="svg-dropzone-group">
+              <rect
+                id="svg-dropzone"
+                class="dropzone-target"
+                x="${dz.x}"
+                y="${dz.y}"
+                width="${dz.w}"
+                height="${dz.h}"
+                rx="${dz.rx}"
+              />
+              <text
+                x="${dz.x + dz.w / 2}"
+                y="${dz.y + dz.h / 2 + 6}"
+                text-anchor="middle"
+                fill="#0369a1"
+                font-size="18"
+                font-weight="800"
+                class="pointer-events-none select-none"
+              >?</text>
+            </g>
+          `;
+          return '';
+        }
+        return `<g class="bone-group" style="cursor: default;">${bone.svgMarkup}</g>`;
+      }).join('');
+
+      // Render dropzone paling atas agar selalu terlihat jelas & mudah dijangkau
+      mainSkeletonSvg.innerHTML = SUPPORT_BONES_SVG + bonesMarkup + dropzoneMarkup;
+
+      // Fallback ramah anak: ketuk dropzone setelah mengetuk kartu tulang
+      if (!isSnapped) {
+        const dzEl = document.getElementById('svg-dropzone');
+        if (dzEl) {
+          dzEl.addEventListener('click', () => {
+            if (state.step1Done) return;
+            if (state.selectedPieceId) {
+              evaluateBonePlacement(state.selectedPieceId);
+            } else {
+              showStep1Feedback('Ketuk dulu salah satu potongan tulang di sebelah kanan, lalu ketuk kotak biru ini!', 'info');
+            }
+          });
+        }
+      }
+    }
+
+    // =========================================
+    // POINTER EVENTS DRAG-AND-DROP (MOBILE & DESKTOP)
+    // =========================================
+    function handleCardPointerDown(e, card) {
+      if (state.step1Done) return;
+      if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+
+      const pieceId = card.dataset.pieceId;
+      state.drag = {
+        active: true,
+        isDragging: false,
+        pieceId,
+        sourceCard: card,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+    }
+
+    function handleGlobalPointerMove(e) {
+      if (!state.drag.active || state.step1Done) return;
+
+      const dx = e.clientX - state.drag.startX;
+      const dy = e.clientY - state.drag.startY;
+
+      // Mulai mode drag jika jari/kursor bergeser lebih dari 6px
+      if (!state.drag.isDragging && Math.hypot(dx, dy) > 6) {
+        state.drag.isDragging = true;
+        selectPieceCard(state.drag.pieceId);
+        state.drag.sourceCard.classList.add('dragging-source');
+
+        const bone = BONES_DATA.find((b) => b.id === state.drag.pieceId);
+        if (bone) {
+          dragGhost.innerHTML = `
+            <svg viewBox="${bone.previewViewBox}" class="w-16 h-16">
+              <g class="bone-group active">${bone.svgMarkup}</g>
+            </svg>
+          `;
+          dragGhost.style.display = 'flex';
+        }
+      }
+
+      if (state.drag.isDragging) {
+        e.preventDefault();
+        // Posisikan ghost tepat di tengah jari/kursor
+        dragGhost.style.transform = `translate3d(${e.clientX - 42}px, ${e.clientY - 42}px, 0)`;
+
+        // Sorot drop zone jika jari/kursor berada di atasnya (dengan toleransi 22px agar ramah anak)
+        const dzEl = document.getElementById('svg-dropzone');
+        if (dzEl) {
+          const isOver = isPointInDropzone(e.clientX, e.clientY, dzEl, 22);
+          dzEl.classList.toggle('drag-over', isOver);
+        }
+      }
+    }
+
+    function handleGlobalPointerUp(e) {
+      if (!state.drag.active) return;
+
+      const { isDragging, pieceId, sourceCard } = state.drag;
+
+      // Reset state drag
+      state.drag.active = false;
+      state.drag.isDragging = false;
+      dragGhost.style.display = 'none';
+      if (sourceCard) sourceCard.classList.remove('dragging-source');
+
+      const dzEl = document.getElementById('svg-dropzone');
+      if (dzEl) dzEl.classList.remove('drag-over');
+
+      if (state.step1Done) return;
+
+      if (isDragging) {
+        // Cek apakah dilepas di area dropzone
+        if (dzEl && isPointInDropzone(e.clientX, e.clientY, dzEl, 24)) {
+          evaluateBonePlacement(pieceId);
+        }
+      } else {
+        // Jika hanya ketukan singkat (tap), pilih kartu sebagai fallback ramah sentuh
+        selectPieceCard(pieceId);
+        showStep1Feedback('Tulang dipilih! Sekarang ketuk kotak biru tanda tanya (?) pada rangka di sebelah kiri.', 'info');
+      }
+    }
+
+    function isPointInDropzone(clientX, clientY, el, padding = 20) {
+      const rect = el.getBoundingClientRect();
+      return (
+        clientX >= rect.left - padding &&
+        clientX <= rect.right + padding &&
+        clientY >= rect.top - padding &&
+        clientY <= rect.bottom + padding
+      );
+    }
+
+    function selectPieceCard(pieceId) {
+      state.selectedPieceId = pieceId;
+      boneCardsContainer.querySelectorAll('.bone-card').forEach((c) => {
+        c.classList.toggle('selected', c.dataset.pieceId === pieceId);
+      });
+    }
+
+    function evaluateBonePlacement(pieceId) {
+      if (state.step1Done) return;
+      const targetBone = state.questions[state.roundIndex];
+
+      if (pieceId === targetBone.id) {
+        // Berhasil terpasang!
+        state.step1Done = true;
+        renderChallengeSkeleton(targetBone, true);
+
+        // Tambah skor pemasangan (+10 langsung benar, +5 jika sempat salah)
+        state.score += state.hadWrongDrag ? 5 : 10;
+        headerScore.textContent = state.score;
+
+        skeletonHint.textContent = '✓ Tulang cocok!';
+        skeletonHint.className = 'inline-block text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full';
+
+        showStep1Feedback('Hebat! Bentuk tulangnya pas sekali!', 'success');
+
+        // Lanjut ke Tahap 2 (Pilih Nama Tulang)
+        setTimeout(() => {
+          openStep2(targetBone);
+        }, 420);
+      } else {
+        // Salah bentuk -> getar ringan + pesan penyemangat
+        state.hadWrongDrag = true;
+        leftSkeletonCard.classList.remove('animate-shake');
+        void leftSkeletonCard.offsetWidth;
+        leftSkeletonCard.classList.add('animate-shake');
+
+        showStep1Feedback('Wah, bentuknya belum pas! Yuk, lihat lagi ukuran kotak birunya dan coba tulang lain.', 'error');
+      }
+    }
+
+    function showStep1Feedback(msg, type) {
+      step1Feedback.classList.remove('hidden');
+      if (type === 'success') {
+        step1Feedback.className = 'shrink-0 mt-2 p-2.5 rounded-xl text-[11px] sm:text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200';
+      } else if (type === 'error') {
+        step1Feedback.className = 'shrink-0 mt-2 p-2.5 rounded-xl text-[11px] sm:text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200';
+      } else {
+        step1Feedback.className = 'shrink-0 mt-2 p-2.5 rounded-xl text-[11px] sm:text-xs font-semibold bg-sky-50 text-sky-800 border border-sky-200';
+      }
+      step1Feedback.textContent = msg;
+    }
+
+    // =========================================
+    // TAHAP 2: PILIH NAMA TULANG
+    // =========================================
+    function openStep2(targetBone) {
+      challengeStep1.classList.add('hidden');
+      challengeStep2.classList.remove('hidden');
+
+      const wrongChoices = shuffleArray(BONES_DATA.filter((b) => b.id !== targetBone.id)).slice(0, 3);
+      const nameChoices = shuffleArray([targetBone, ...wrongChoices]);
+
+      nameChoicesContainer.innerHTML = nameChoices
+        .map(
+          (choice, idx) => `
+            <button
+              type="button"
+              data-choice-id="${choice.id}"
+              class="w-full text-left px-3 py-2.5 sm:py-3 rounded-xl border-2 border-slate-200 bg-white hover:border-sky-400 hover:bg-sky-50/50 active:scale-[0.99] font-bold text-xs sm:text-sm text-slate-800 transition-all flex items-center gap-2.5"
+            >
+              <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-extrabold flex items-center justify-center shrink-0">
+                ${String.fromCharCode(65 + idx)}
+              </span>
+              <span class="leading-snug">${choice.name}</span>
+            </button>
+          `
+        )
+        .join('');
+
+      nameChoicesContainer.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (state.step2Done) return;
+          evaluateNameAnswer(btn.dataset.choiceId, targetBone);
+        });
+      });
+    }
+
+    function evaluateNameAnswer(choiceId, targetBone) {
+      state.step2Done = true;
+      const isCorrect = choiceId === targetBone.id;
+
+      nameChoicesContainer.querySelectorAll('button').forEach((btn) => {
+        btn.disabled = true;
+        const id = btn.dataset.choiceId;
+        if (id === targetBone.id) {
+          btn.className = 'w-full text-left px-3 py-2.5 sm:py-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 font-extrabold text-xs sm:text-sm text-emerald-900 flex items-center gap-2.5';
+        } else if (id === choiceId && !isCorrect) {
+          btn.className = 'w-full text-left px-3 py-2.5 sm:py-3 rounded-xl border-2 border-rose-400 bg-rose-50 font-bold text-xs sm:text-sm text-rose-900 flex items-center gap-2.5';
+        } else {
+          btn.className = 'w-full text-left px-3 py-2.5 sm:py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-medium text-xs sm:text-sm flex items-center gap-2.5';
+        }
+      });
+
+      if (isCorrect) {
+        state.score += 10;
+        state.correctNameCount += 1;
+        headerScore.textContent = state.score;
+        step2Feedback.className = 'shrink-0 mt-2 p-2.5 sm:p-3 rounded-xl text-[11px] sm:text-xs leading-relaxed bg-emerald-50 text-emerald-900 border border-emerald-200';
+        step2Feedback.innerHTML = `<strong>Benar!</strong> ${targetBone.name} berfungsi untuk ${targetBone.func.charAt(0).toLowerCase() + targetBone.func.slice(1)}`;
+      } else {
+        step2Feedback.className = 'shrink-0 mt-2 p-2.5 sm:p-3 rounded-xl text-[11px] sm:text-xs leading-relaxed bg-rose-50 text-rose-900 border border-rose-200';
+        step2Feedback.innerHTML = `<strong>Hampir tepat!</strong> Ini adalah <strong>${targetBone.name}</strong>. Fungsinya: ${targetBone.func}`;
+      }
+
+      step2Feedback.classList.remove('hidden');
+      btnNextRound.classList.remove('hidden');
+      btnNextRound.textContent = state.roundIndex === 4 ? 'Lihat Hasil Akhir →' : 'Ronde Berikutnya →';
+    }
+
+    function nextRoundOrFinish() {
+      if (state.roundIndex < 4) {
+        state.roundIndex += 1;
+        renderChallengeRound();
+      } else {
+        showFinalResult();
+      }
+    }
+
+    function showFinalResult() {
+      challengeStep1.classList.add('hidden');
+      challengeStep2.classList.add('hidden');
+      challengeResultCard.classList.remove('hidden');
+
+      // Tampilkan rangka utuh berwarna hijau segar di kolom kiri sebagai apresiasi
+      skeletonHint.textContent = '★ Rangka Lengkap!';
+      skeletonHint.className = 'inline-block text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full';
+      skeletonFooterLabel.textContent = '5 / 5 Ronde Selesai';
+
+      const allSnapped = BONES_DATA.map((b) => `<g class="bone-group snapped" style="cursor: default;">${b.svgMarkup}</g>`).join('');
+      mainSkeletonSvg.innerHTML = SUPPORT_BONES_SVG + allSnapped;
+
+      finalScoreEl.textContent = state.score;
+      finalCorrectEl.textContent = `${state.correctNameCount}/5`;
+
+      // Hitung bintang apresiasi (1–3 bintang)
+      const starCount = state.score >= 85 ? 3 : state.score >= 60 ? 2 : 1;
+      const starSvgFilled = `<svg class="w-8 h-8 sm:w-10 sm:h-10 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+      const starSvgEmpty = `<svg class="w-8 h-8 sm:w-10 sm:h-10 fill-slate-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+      resultStars.innerHTML = Array.from({ length: 3 }, (_, i) => (i < starCount ? starSvgFilled : starSvgEmpty)).join('');
+
+      if (starCount === 3) {
+        resultTitle.textContent = 'Ahli Anatomi Cilik!';
+        resultMessage.textContent = 'Luar biasa! Kamu berhasil memasang dan mengenali hampir semua tulang dengan tepat.';
+      } else if (starCount === 2) {
+        resultTitle.textContent = 'Penjelajah Rangka Hebat!';
+        resultMessage.textContent = 'Bagus sekali! Sedikit latihan lagi kamu pasti hafal semua bagian rangka manusia.';
+      } else {
+        resultTitle.textContent = 'Tetap Semangat Belajar!';
+        resultMessage.textContent = 'Usahamu sudah keren! Yuk belajar sebentar di Mode Eksplorasi lalu coba lagi.';
+      }
+    }
+
+    // =========================================
+    // EVENT LISTENERS & INISIALISASI
+    // =========================================
+    tabExplore.addEventListener('click', () => setMode('explore'));
+    tabChallenge.addEventListener('click', () => setMode('challenge'));
+    btnGoChallenge.addEventListener('click', () => setMode('challenge'));
+
+    btnPrevBone.addEventListener('click', () => {
+      state.exploreIndex = (state.exploreIndex - 1 + BONES_DATA.length) % BONES_DATA.length;
+      renderExploreView();
+    });
+
+    btnNextBone.addEventListener('click', () => {
+      state.exploreIndex = (state.exploreIndex + 1) % BONES_DATA.length;
+      renderExploreView();
+    });
+
+    btnNextRound.addEventListener('click', nextRoundOrFinish);
+    btnPlayAgain.addEventListener('click', startChallenge);
+    btnBackExplore.addEventListener('click', () => setMode('explore'));
+
+    // Listener global untuk drag Pointer Events
+    window.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+
+    // Inisialisasi awal di Mode Eksplorasi
+    renderExploreView();
+  </script>
+</body>
+</html>
